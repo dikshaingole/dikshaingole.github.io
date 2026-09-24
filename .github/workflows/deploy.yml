@@ -41,7 +41,7 @@ jobs:
       - name: Package site
         run: |
           mkdir -p _site
-          cp index.html _site/
+          cp index.html resume.pdf _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
