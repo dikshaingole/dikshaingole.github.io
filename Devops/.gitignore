@@ -1,0 +1,17 @@
+# The Excel workbook is the private source of truth; only the generated
+# index.html is published. Includes Excel's ~$ lock files.
+*.xlsx
+
+# Workbook backups (bkp/excel/) and index.html backups (bkp/*.bak)
+bkp/
+*.bak
+
+# Local run-time history used only for DevOps_Prep's time estimate
+.sync_history.csv
+
+# extract_data.py's temporary debug output
+extracted_questions.json
+
+# Python bytecode cache
+__pycache__/
+*.pyc
