@@ -40,8 +40,11 @@ jobs:
       - uses: actions/configure-pages@v5
       - name: Package site
         run: |
-          mkdir -p _site
+          mkdir -p _site/Devops
           cp index.html resume.pdf _site/
+          # Only the generated page is published; the workbook, scripts
+          # and tools in Devops/ stay in the repo, not on the site.
+          cp Devops/index.html _site/Devops/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
