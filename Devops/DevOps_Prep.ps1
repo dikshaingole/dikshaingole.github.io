@@ -53,6 +53,44 @@ function Open-InVSCode {
     }
 }
 
+# Offers to install the Claude Code CLI when 'claude' isn't on PATH, then
+# runs it once interactively so the user can log in. Sets $script:ClaudeOk.
+function Install-ClaudeCli {
+    $script:ClaudeOk = $false
+    Write-Host "Claude Code CLI ('claude') was not found on this machine."
+    if ((Read-Host "Install it now? (y/n)") -notmatch '^[yY]') { return }
+
+    Write-Host "Installing Claude Code (official installer)..."
+    try {
+        Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression
+    } catch {
+        Write-Host "Official installer failed: $($_.Exception.Message)"
+    }
+    # The installer puts claude.exe in ~\.local\bin; this session's PATH
+    # predates the install, so add it (and the npm global dir) by hand.
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $userPath    = [Environment]::GetEnvironmentVariable("Path", "User")
+    $env:Path = "$machinePath;$userPath;$env:USERPROFILE\.local\bin;$env:APPDATA\npm"
+
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Write-Host "Trying npm instead..."
+        npm install -g @anthropic-ai/claude-code
+    }
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+        Write-Host "Claude Code could not be installed automatically."
+        Write-Host "Install it from https://claude.com/claude-code and run this again."
+        return
+    }
+    Write-Host "Claude Code installed."
+
+    Write-Host ""
+    Write-Host "Claude Code needs to be logged in once. It will open now - follow the"
+    Write-Host "login steps in the browser, then type /exit to come back here."
+    if ((Read-Host "Log in now? (y/n)") -notmatch '^[yY]') { return }
+    claude
+    $script:ClaudeOk = $true
+}
+
 # ---------- Step 1: All_questions.txt -> Excel (Claude Code) ----------
 # Sets $script:StepOk to $true when the step succeeded or had nothing to do.
 function Sync-QuestionsToExcel {
@@ -64,9 +102,11 @@ function Sync-QuestionsToExcel {
         $script:StepOk = $true; return
     }
     if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
-        Write-Host "Claude Code CLI ('claude') was not found on this machine."
-        Open-InVSCode
-        return
+        Install-ClaudeCli
+        if (-not $script:ClaudeOk) {
+            Open-InVSCode
+            return
+        }
     }
     if (Test-WorkbookLocked) {
         Write-Host "The workbook is open in Excel. Close it (save first), then run this again."

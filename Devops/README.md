@@ -28,7 +28,8 @@ Live at **https://dikshaingole.github.io/Devops/**
      tags repeats in the `Priority Count` column (`LinkedIn-1`,
      `Interview-2`...), backs up the workbook to `bkp/excel/` first, and
      clears handled lines from `All_questions.txt`. Skipped when the file
-     is empty. Needs the Claude Code CLI installed and logged in; close the
+     is empty. Needs the Claude Code CLI; if it's missing, the tool offers
+     to install it and walks you through the one-time login. Close the
      workbook in Excel first.
    - **Excel -> website:** `smart_sync.py` updates `index.html` from the
      workbook, offers to add any new sheets, then `verify_index.py` checks
