@@ -43,14 +43,62 @@ function Invoke-Py([string[]]$pyArgs) {
     $script:PyOk = ($LASTEXITCODE -eq 0)
 }
 
-function Open-InVSCode {
+function Open-InVSCode([string]$prompt) {
+    if (-not $prompt) { $prompt = "Follow the instructions in question_sync_prompt.md on All_questions.txt." }
     if (Get-Command code -ErrorAction SilentlyContinue) {
         code .
-        Write-Host "VS Code is opening. Tell Claude Code there:"
-        Write-Host '  "Follow the instructions in question_sync_prompt.md on All_questions.txt."'
+        Write-Host "VS Code is opening. Paste this to Claude Code there:"
     } else {
         Write-Host "VS Code ('code') was not found. Open this folder manually: $PSScriptRoot"
+        Write-Host "Then paste this to Claude Code:"
     }
+    Write-Host ""
+    Write-Host "  $prompt"
+    Write-Host ""
+    try { Set-Clipboard -Value $prompt; Write-Host "(Already copied to your clipboard - just press Ctrl+V.)" } catch {}
+    Write-Host "When Claude finishes there, come back and pick 3 (Excel -> website), then 8 (Publish)."
+}
+
+# Reads "Company: X" from All_questions.txt if present and asks the user to
+# confirm it; otherwise asks for one. Returns "" when there is no company.
+function Get-CompanyName {
+    $found = ""
+    if (Test-Path $questionsFile) {
+        $line = Get-Content $questionsFile -Encoding UTF8 | Where-Object { $_ -match '^\s*Company\s*[:\-]\s*\S' } | Select-Object -First 1
+        if ($line) { $found = ($line -replace '^\s*Company\s*[:\-]\s*', '').Trim() }
+    }
+    if ($found) {
+        $answer = Read-Host "Company found in All_questions.txt: '$found'. Press Enter to use it, type another name, or type - for none"
+    } else {
+        $answer = Read-Host "Which company are these questions from? (type the name, or press Enter if none)"
+    }
+    $answer = $answer.Trim()
+    if ($answer -eq "-") { return "" }
+    if ($answer) { return $answer }
+    return $found
+}
+
+# Returns $true when 'claude' can be run. The official installer puts it in
+# ~\.local\bin, which often isn't on PATH, and the VS Code extension ships
+# its own copy - so check those folders too and add the first hit to this
+# session's PATH.
+function Find-ClaudeCli {
+    if (Get-Command claude -ErrorAction SilentlyContinue) { return $true }
+    $candidates = @(
+        "$env:USERPROFILE\.local\bin\claude.exe",
+        "$env:APPDATA\npm\claude.cmd"
+    )
+    $candidates += @(Get-ChildItem "$env:USERPROFILE\.vscode\extensions" -Directory -Filter "anthropic.claude-code-*" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        ForEach-Object { Join-Path $_.FullName "resources\native-binary\claude.exe" })
+    foreach ($exe in $candidates) {
+        if (Test-Path $exe) {
+            $env:Path = (Split-Path $exe -Parent) + ";" + $env:Path
+            Write-Host "Using Claude Code at $exe"
+            return $true
+        }
+    }
+    return $false
 }
 
 # Offers to install the Claude Code CLI when 'claude' isn't on PATH, then
@@ -101,18 +149,13 @@ function Sync-QuestionsToExcel {
         Write-Host "All_questions.txt is empty - nothing to add. Skipping."
         $script:StepOk = $true; return
     }
-    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
-        Install-ClaudeCli
-        if (-not $script:ClaudeOk) {
-            Open-InVSCode
-            return
-        }
-    }
     if (Test-WorkbookLocked) {
         Write-Host "The workbook is open in Excel. Close it (save first), then run this again."
         return
     }
 
+    # Ask about the source and company first, so both the Claude CLI run and
+    # the VS Code fallback get the same answers.
     Write-Host "Where are these questions from?"
     Write-Host "  [1] LinkedIn post"
     Write-Host "  [2] A real interview"
@@ -127,6 +170,36 @@ function Sync-QuestionsToExcel {
     }
     Write-Host "Using source tag: $sourceTag-1, $sourceTag-2, ..."
 
+    $company = Get-CompanyName
+    if ($company) { Write-Host "Using company: $company" } else { Write-Host "No company - the Company column will be left as it is." }
+
+    $prompt = "Follow the instructions in question_sync_prompt.md on All_questions.txt. " +
+              "For this run, use '$sourceTag' as the source tag instead of the default 'LinkedIn' " +
+              "(so Priority Count tags look like $sourceTag-1, $sourceTag-2, etc.). "
+    if ($company) {
+        $prompt += "These questions are from company '$company' - fill the Company column as described in question_sync_prompt.md. "
+    } else {
+        $prompt += "No company was given for this run - leave the Company column untouched. "
+    }
+
+    if (Find-ClaudeCli) {
+        Write-Host ""
+        Write-Host "How should Claude Code run the sync?"
+        Write-Host "  [1] Here in this window (Claude Code CLI)"
+        Write-Host "  [2] In VS Code (prompt is copied for you to paste)"
+        if ((Read-Host "Enter 1 or 2") -eq "2") {
+            Open-InVSCode $prompt
+            return
+        }
+    } else {
+        Install-ClaudeCli
+        if (-not $script:ClaudeOk) {
+            Open-InVSCode $prompt
+            return
+        }
+    }
+    $vsPrompt = $prompt
+
     Write-Host ""
     Write-Host "Non-blank lines in All_questions.txt: $lineCount"
     if (Test-Path $historyFile) {
@@ -139,10 +212,7 @@ function Sync-QuestionsToExcel {
         Write-Host "First run here - usually a few minutes, since every question is checked against the whole workbook."
     }
 
-    $prompt = "Follow the instructions in question_sync_prompt.md on All_questions.txt. " +
-              "For this run, use '$sourceTag' as the source tag instead of the default 'LinkedIn' " +
-              "(so Priority Count tags look like $sourceTag-1, $sourceTag-2, etc.). " +
-              "Only edit the .xlsx workbook, All_questions.txt and files under bkp/excel/ - do not touch index.html, " +
+    $prompt += "Only edit the .xlsx workbook, All_questions.txt and files under bkp/excel/ - do not touch index.html, " +
               "scripts/ or anything outside this folder; the website is regenerated by a separate step afterwards. " +
               "IMPORTANT: this output goes to a plain Windows terminal with no Markdown rendering - " +
               "do NOT use Markdown tables (no '|' pipes, no '---' rows). Report the summary as plain indented text, " +
@@ -166,7 +236,7 @@ function Sync-QuestionsToExcel {
     if (-not $ok) {
         Write-Host ""
         Write-Host "The question sync did not finish successfully."
-        if ((Read-Host "Open this folder in VS Code to finish it there? (y/n)") -match '^[yY]') { Open-InVSCode }
+        if ((Read-Host "Open this folder in VS Code to finish it there? (y/n)") -match '^[yY]') { Open-InVSCode $vsPrompt }
         return
     }
 

@@ -23,11 +23,21 @@ Cross-check every question in `All_questions.txt` against the full Excel workboo
 - If the matched row's Priority Count already holds a `LinkedIn-N` style tag, and this txt file is a genuinely new/different source occurrence of that same question, increment it to `LinkedIn-(N+1)`. If it's the same tag from a source I've already had you process (i.e. you're re-running this check on the same txt content), leave it as-is — don't double-increment.
 - Never touch Priority Count values that aren't yours to manage (e.g. pre-existing tags using a different source label, from unrelated earlier batches) unless they match a question actually present in this txt file.
 
+## Company column
+
+- The run's instruction may name a company (e.g. "These questions are from company 'Wipro'"). `DevOps_Prep.bat` asks for it up front, pre-filling it from a `Company: ...` line in `All_questions.txt` when there is one. If no company is named in the instruction, leave every Company cell untouched.
+- When a company is named, write it into the Company column of every row this run adds or updates (Priority Count set or incremented — not rows left untouched or flagged):
+  - Company cell blank → set it to the company name.
+  - Company cell already holds other companies (comma-separated) and this one isn't among them (case-insensitive) → append `, <Company>`.
+  - Company already listed → leave it.
+- New-question rows get the company too, as plain unstyled text like the question cell.
+- Header/metadata lines in the txt (`Company:`, `Role:`, `Experience Required:`, `Interview Mode:`, `Interview Date:`, section headings like `🔹 Kubernetes`) are not questions — don't match or add them. When cleaning up the txt, drop a section heading once no questions remain under it, and drop the metadata lines only once no questions remain in the file at all.
+
 ## Constraints
 
-- Don't create a separate column for source/priority tracking — everything goes in the existing Priority Count column per sheet.
+- Don't create a separate column for source/priority tracking — everything goes in the existing Priority Count column per sheet (and the company in the existing Company column).
 - Don't introduce duplicate question rows — if a close match already exists anywhere in the workbook, update that row instead of adding a new one.
-- Don't alter existing cell formatting anywhere in the workbook — this includes font, bold/italic, font color, fill/highlight color, borders, cell alignment, column widths, row heights, merged cells, and sheet order/names. Only add new rows or write into currently-blank cells; never re-touch a cell that already has a value or style, except the specific Priority Count updates described above.
+- Don't alter existing cell formatting anywhere in the workbook — this includes font, bold/italic, font color, fill/highlight color, borders, cell alignment, column widths, row heights, merged cells, and sheet order/names. Only add new rows or write into currently-blank cells; never re-touch a cell that already has a value or style, except the specific Priority Count and Company updates described above.
 - **Preserve rich text (in-cell mixed formatting), not just whole-cell formatting.** Some cells may have *part* of their text bold, colored, a different size, etc. (e.g. a keyword bolded within an otherwise plain sentence) rather than the whole cell being styled uniformly. When you write to a cell that already contains text and rich-text runs (mixed formatting within the string), you must preserve those runs exactly as-is:
   - If you are only editing the Priority Count cell, this doesn't apply — that's a separate, likely-blank cell.
   - If a question cell itself needs any edit (which should be rare/none under this prompt, since existing question text shouldn't be touched), never do a plain overwrite of `cell.value` that would flatten mixed-run rich text down to a single uniform style. Use whatever your Excel-editing method supports for reading/writing rich text runs (e.g. preserving the `rich_text`/inline-string XML rather than round-tripping through a plain string), and if you can't guarantee runs will survive, stop and flag that cell instead of writing to it.

@@ -1,3 +1,14 @@
+Company: Wipro
+Role: DevOps Engineer
+Experience Required: 5–8 Years
+Interview Mode: Virtual / Offline
+Interview Date: 10 October 2026
 
+🔹 Kubernetes
+• How do you debug failing probes, DNS, networking, and service connectivity?
 
-Q. What is Pranik?
+🔹 Cloud + Infrastructure
+• How do you troubleshoot IAM permission errors, load balancers, and private network connectivity?
+
+🔹 Coding / Scenario Questions
+• Write a Bash script to identify failed services and alert on disk usage above 85%.

@@ -23,7 +23,9 @@ Live at **https://dikshaingole.github.io/Devops/**
 1. Paste new interview questions into `All_questions.txt` (any format;
    numbering and stray text are fine).
 2. Double-click **`DevOps_Prep.bat`** and pick **1. DO EVERYTHING**:
-   - **New questions -> Excel:** Claude Code (`claude -p`) follows
+   - **New questions -> Excel:** first asks where the questions came from
+     (LinkedIn / real interview / other) and which company (pre-filled from
+     a `Company:` line in the txt), then Claude Code (`claude -p`) follows
      `question_sync_prompt.md`. It adds new questions to the right sheet,
      tags repeats in the `Priority Count` column (`LinkedIn-1`,
      `Interview-2`...), backs up the workbook to `bkp/excel/` first, and
